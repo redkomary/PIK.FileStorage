@@ -1,5 +1,6 @@
 ﻿using System.Reflection;
 using Microsoft.AspNetCore.Mvc;
+using PIK.FileStorage.Middleware;
 
 namespace PIK.FileStorage;
 
@@ -35,8 +36,6 @@ internal class Startup
 			string xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
 			config.IncludeXmlComments(xmlPath);
 		});
-
-		services.AddResponseCaching();
 	}
 
 	public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
@@ -56,11 +55,11 @@ internal class Startup
 		app.UseRouting();
 		app.UseHttpsRedirection();
 
+		app.UseCustomResponseCaching();
+
 		app.UseEndpoints(endpoints =>
 		{
 			endpoints.MapControllers();
 		});
-
-		app.UseResponseCaching();
 	}
 }

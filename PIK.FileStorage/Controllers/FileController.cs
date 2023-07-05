@@ -32,7 +32,6 @@ public class FileController : ControllerBase
 	[HttpGet("{fileName}")]
 	[ProducesResponseType(StatusCodes.Status200OK)]
 	[ProducesResponseType(StatusCodes.Status404NotFound)]
-	[ResponseCache(CacheProfileName = "FileCache")]
 	public async Task<ActionResult> Download(string fileName)
 	{
 		string filePath = Path.Combine(_fileStorageDirectory, fileName);
