@@ -1,9 +1,11 @@
-﻿namespace PIK.FileStorage.Middleware;
+﻿using PIK.FileStorage.Auxiliary;
+
+namespace PIK.FileStorage.Middleware;
 
 public class CustomResponseCachingMiddleware
 {
+	private readonly MemoryCache<string, CachedResponse> _cache = new();
 	private readonly RequestDelegate _next;
-	private readonly Dictionary<string, CachedResponse> _cache = new();
 
 
 	public CustomResponseCachingMiddleware(RequestDelegate next)
@@ -24,26 +26,30 @@ public class CustomResponseCachingMiddleware
 	{
 		string requestPath = context.Request.Path.Value!;
 
-		if (!string.IsNullOrEmpty(requestPath) && await TryGetResponseFromCache(requestPath, context.Response))
+		if (!string.IsNullOrEmpty(requestPath) && _cache.TryGet(requestPath, out CachedResponse? cachedResponse))
+		{
+			await SetResponseFromCacheSettings(context.Response, cachedResponse!);
 			return;
+		}
 
-		MemoryStream originalBodyStream = await GetOriginalResponseBodyMemoryStream(context);
-		SaveResponseToCache(requestPath, context.Response, originalBodyStream);
+		CachedResponse cachingResponse = await GetCachedResponseSettings(context);
+		_cache.Set(requestPath, cachingResponse);
 	}
 
-	private void SaveResponseToCache(string responseKey, HttpResponse response, MemoryStream bodyStream)
+	private async Task<CachedResponse> GetCachedResponseSettings(HttpContext context)
 	{
-		var cachedResponse = new CachedResponse
-		{
-			StatusCode = response.StatusCode,
-			Headers = response.Headers
+		HttpResponse response = context.Response;
+		MemoryStream bodyMemoryStream = await GetOriginalResponseBodyMemoryStream(context);
+
+		return new CachedResponse
+		(
+			response.StatusCode,
+			response.Headers
 				.ToDictionary(
 					header => header.Key,
 					header => header.Value.ToArray()),
-			Body = bodyStream.ToArray()
-		};
-
-		_cache[responseKey] = cachedResponse;
+			bodyMemoryStream.ToArray()
+		);
 	}
 
 	private async Task<MemoryStream> GetOriginalResponseBodyMemoryStream(HttpContext context)
@@ -59,28 +65,13 @@ public class CustomResponseCachingMiddleware
 		return memoryStream;
 	}
 
-	private async Task<bool> TryGetResponseFromCache(string responseKey, HttpResponse response)
+	private async Task SetResponseFromCacheSettings(HttpResponse response, CachedResponse cachedResponse)
 	{
-		if (!_cache.TryGetValue(responseKey, out CachedResponse? cachedResponse))
-			return false;
-
 		response.StatusCode = cachedResponse.StatusCode;
 
 		foreach ((string key, string[] values) in cachedResponse.Headers)
 			response.Headers[key] = values;
 
 		await response.BodyWriter.WriteAsync(cachedResponse.Body);
-
-		return true;
-	}
-
-
-	private class CachedResponse
-	{
-		public int StatusCode { get; init; }
-
-		public Dictionary<string, string[]> Headers { get; init; }
-
-		public byte[] Body { get; init; }
 	}
 }
