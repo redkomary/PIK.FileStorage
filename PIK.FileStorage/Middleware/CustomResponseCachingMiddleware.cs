@@ -4,12 +4,16 @@ namespace PIK.FileStorage.Middleware;
 
 public class CustomResponseCachingMiddleware
 {
-	private readonly MemoryCache<string, CachedResponse> _cache = new();
+	private readonly MemoryCache<string, CachedResponse> _cache;
 	private readonly RequestDelegate _next;
 
 
-	public CustomResponseCachingMiddleware(RequestDelegate next)
+	public CustomResponseCachingMiddleware(IConfiguration configuration, RequestDelegate next)
 	{
+		string durationStringValue = configuration["CacheResponseDuration"];
+		int.TryParse(durationStringValue, out int duration);
+
+		_cache = new MemoryCache<string, CachedResponse>();
 		_next = next;
 	}
 

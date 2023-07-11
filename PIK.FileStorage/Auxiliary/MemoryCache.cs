@@ -11,8 +11,16 @@ internal class MemoryCache<TKey, TValue>
 		return _storage.TryGetValue(key, out value);
 	}
 
-	public void Set(TKey key, TValue value)
+	public void Set(TKey key, TValue value, TimeSpan validFor)
 	{
 		_storage[key] = value;
+		RegisterItemDeletion(key, validFor);
+	}
+
+
+	private async Task RegisterItemDeletion(TKey key, TimeSpan delay)
+	{
+		await Task.Delay(delay);
+		_storage.Remove(key);
 	}
 }
